@@ -29,6 +29,12 @@ Example Nginx configuration::
         internal;
         proxy_pass http://localhost:8889/;
     }
+
+Example scopes lists:
+
+* ``contacts-read contacts-write``
+* ``groups-read groups-write``
+* ``messages-read messages-sensititve-read``
 """
 
 import base64
@@ -80,12 +86,3 @@ class AuthServer(Application):
             (".*", AuthHandler),
         ]
         Application.__init__(self, routes, **settings)
-
-
-# Scopes:
-#   contacts-read contacts-write
-#   groups-
-#   messages-read
-#   messages-sensitive-read
-#   ...
-#   grow scopes list as we add APIs.
