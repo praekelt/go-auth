@@ -1,3 +1,7 @@
+"""
+Tests for the in-memory authentication backend.
+"""
+
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 from zope.interface.verify import verifyObject
