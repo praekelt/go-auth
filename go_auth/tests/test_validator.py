@@ -50,14 +50,43 @@ class TestAuthValidator(TestCase):
             (yield validator.validate_bearer_token(token, ["laser"], request)),
             False)
 
-    # TODO: fails, mismatched access token
-    # TODO: fails, no scopes match
+    @inlineCallbacks
+    def test_validate_bearer_token_fails_mismatched_access_token(self):
+        validator = AuthValidator(self.auth)
+        request = self.mk_request("client1")
+        token_good = self.mk_token()
+        token_bad = self.mk_token(access_token=u"bad horse")
+        yield self.auth.store_access_token("client1", token_good)
+        self.assertEqual(
+            (yield validator.validate_bearer_token(
+                token_bad, ["laser"], request)),
+            False)
+
+    @inlineCallbacks
+    def test_validate_bearer_token_fails_mismatched_scopes(self):
+        validator = AuthValidator(self.auth)
+        request = self.mk_request("client1")
+        token = self.mk_token(scopes=["laser", "periscope"])
+        yield self.auth.store_access_token("client1", token)
+        self.assertEqual(
+            (yield validator.validate_bearer_token(token, ["sith"], request)),
+            False)
+
+    @inlineCallbacks
+    def test_validate_bearer_token_fails_no_scopes(self):
+        validator = AuthValidator(self.auth)
+        request = self.mk_request("client1")
+        token = self.mk_token(scopes=["laser", "periscope"])
+        yield self.auth.store_access_token("client1", token)
+        self.assertEqual(
+            (yield validator.validate_bearer_token(token, [], request)),
+            False)
 
     @inlineCallbacks
     def test_validate_bearer_token_succeeds(self):
         validator = AuthValidator(self.auth)
         request = self.mk_request("client1")
-        token = self.mk_token()
+        token = self.mk_token(scopes=["laser", "periscope"])
         yield self.auth.store_access_token("client1", token)
         self.assertEqual(
             (yield validator.validate_bearer_token(token, ["laser"], request)),
