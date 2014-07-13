@@ -13,6 +13,22 @@ add to the original request:
     An ID for the resource owner.
 * ``X-Scopes``:
     A space separated list of scopes the client has been given access to.
+
+Example Nginx configuration::
+
+    location /api/ {
+        auth_request /auth/;
+        auth_request_set $owner_id $upstream_http_x_owner_id;
+        auth_request_set $scopes $upstream_http_x_scopes;
+        proxy_pass http://localhost:8888/;
+        proxy_set_header X-Owner-ID $owner_id;
+        proxy_set_header X-Scopes $scopes;
+    }
+
+    location /auth/ {
+        internal;
+        proxy_pass http://localhost:8889/;
+    }
 """
 
 import base64
