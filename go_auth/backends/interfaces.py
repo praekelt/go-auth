@@ -10,9 +10,9 @@ class IAuthBackend(Interface):
     access tokens.
     """
 
-    def get_access_token(client_id):
+    def retrieve_access_token(client_id):
         """
-        Retrieve the token associated with the client_id.
+        Retrieve the access token associated with the client_id.
 
         :param str client_id:
             The client id to retrieve the access token for.
@@ -22,9 +22,9 @@ class IAuthBackend(Interface):
             None if no access token exists.
         """
 
-    def save_access_token(client_id, token):
+    def store_access_token(client_id, token):
         """
-        Save a token for the associated client_id.
+        Save the access token for the associated client_id.
 
         :param str client_id:
             The client id the access token belongs to.

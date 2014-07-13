@@ -32,10 +32,10 @@ class InMemoryAuthBackend(object):
         """
         return defer_async(value, self.reactor)
 
-    def get_access_token(self, client_id):
+    def retrieve_access_token(self, client_id):
         token = self._access_tokens.get(client_id)
         return self._defer(token)
 
-    def save_access_token(self, client_id, token):
+    def store_access_token(self, client_id, token):
         self._access_tokens[client_id] = token
         return self._defer(None)
