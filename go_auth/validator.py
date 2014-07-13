@@ -2,6 +2,7 @@
 """
 
 from oauthlib.oauth2 import RequestValidator, WebApplicationServer
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 
 class AuthValidator(RequestValidator):
@@ -11,19 +12,21 @@ class AuthValidator(RequestValidator):
     def __init__(self, backend):
         self._backend = backend
 
+    @inlineCallbacks
     def validate_bearer_token(self, token, scopes, request):
-        stored_token = self._backend.get_token(request.client_id)
+        stored_token = yield self._backend.retrieve_access_token(
+            request.client_id)
         if stored_token is None:
-            return False
+            returnValue(False)
         if stored_token['access_token'] != token['access_token']:
-            return False
+            returnValue(False)
         stored_scopes = stored_token['scopes'].split()
         available_scopes = set(stored_scopes) & set(scopes)
         # validate as true if any scopes are available
-        return bool(available_scopes)
+        returnValue(bool(available_scopes))
 
     def save_bearer_token(self, token, request, *args, **kw):
-        self._backend.save_token(request.client_id, token)
+        return self._backend.store_access_token(request.client_id, token)
 
 
 def web_app_authenticator(backend):
