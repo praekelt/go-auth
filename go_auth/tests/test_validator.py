@@ -45,7 +45,7 @@ class TestAuthValidator(TestCase):
         client_id, access_token = self.mk_cred()
         uri = "http://example.com/?access_token=%s" % access_token
         valid, request = self.auth.verify_request(
-            uri, http_method="GET", headers={}, scopes=[])
+            uri, http_method="GET", headers={}, scopes=None)
         self.assertEqual(valid, True)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
@@ -57,7 +57,7 @@ class TestAuthValidator(TestCase):
             "Authorization": "Bearer %s" % (access_token,),
         }
         valid, request = self.auth.verify_request(
-            uri, http_method="GET", headers=headers, scopes=[])
+            uri, http_method="GET", headers=headers, scopes=None)
         self.assertEqual(valid, True)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
