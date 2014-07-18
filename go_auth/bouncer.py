@@ -98,4 +98,4 @@ class Bouncer(Application):
         routes = [
             (".*", AuthHandler, {"auth": self.auth}),
         ]
-        Application.__init__(self, routes, debug=True, **settings)
+        Application.__init__(self, routes, **settings)
