@@ -41,15 +41,19 @@ Example scopes lists:
 * ``messages-read messages-sensititve-read``
 """
 
+from twisted.internet.defer import inlineCallbacks
+
 from cyclone.web import (
     Application, RequestHandler, HTTPError, HTTPAuthenticationRequired)
+
+import treq
 
 from go_api.cyclone.handlers import read_yaml_config
 
 from .validator import static_web_authenticator
 
 
-class AuthHandler(RequestHandler):
+class BounceAuthHandler(RequestHandler):
 
     def initialize(self, auth):
         self.auth = auth
@@ -86,16 +90,45 @@ class AuthHandler(RequestHandler):
                    % (client_id, scopes))
 
 
+class ProxyAuthHandler(BounceAuthHandler):
+    @inlineCallbacks
+    def get(self, *args, **kw):
+        owner_id, client_id,  scopes = self.check_oauth()
+        headers = self.request.headers.copy()
+        headers["X-Owner-ID"] = owner_id
+        headers["X-Client-ID"] = client_id
+        headers["X-Scopes"] = " ".join(scopes)
+        resp = yield treq.request(
+            self.request.method, self.request.uri,
+            headers=headers, data=self.request.body)
+        self.set_status(resp.code)
+        for header, items in resp.headers.getAllRawHeaders().items():
+            for item in items:
+                self.set_header(header, item)
+        body = yield resp.text()
+        self.write(body)
+
+
 class Bouncer(Application):
     """
     Go authentication bouncer service.
     """
+
+    AUTH_CLASS = BounceAuthHandler
 
     def __init__(self, configfile, **settings):
         self.config = read_yaml_config(configfile)
         self.auth_store = self.config['auth_store']
         self.auth = static_web_authenticator(self.auth_store)
         routes = [
-            (".*", AuthHandler, {"auth": self.auth}),
+            (".*", self.AUTH_CLASS, {"auth": self.auth}),
         ]
         Application.__init__(self, routes, **settings)
+
+
+class Proxier(Bouncer):
+    """
+    Go authentication proxier service.
+    """
+
+    AUTH_CLASS = ProxyAuthHandler
