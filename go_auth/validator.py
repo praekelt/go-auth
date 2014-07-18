@@ -2,7 +2,6 @@
 """
 
 from oauthlib.oauth2 import RequestValidator, WebApplicationServer
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 
 class StaticAuthValidator(RequestValidator):
@@ -29,25 +28,25 @@ class StaticAuthValidator(RequestValidator):
             auth_store = {}
         self.auth_store = auth_store
 
-    @inlineCallbacks
     def validate_bearer_token(self, token, scopes, request):
-        stored_token = yield self._backend.retrieve_access_token(
-            request.client_id)
-        if stored_token is None:
-            returnValue(False)
-        if stored_token['access_token'] != token:
-            returnValue(False)
-        stored_scopes = stored_token['scopes'].split()
-        available_scopes = set(stored_scopes) & set(scopes or ['foo'])
-        # validate as true if any scopes are available
-        returnValue(bool(available_scopes))
+        if token is None:
+            return False
+        creds = self.auth_store.get(token)
+        if creds is None:
+            return False
+        request.client_id = creds["client_id"]
+        request.scopes = creds["scopes"]
+        return True
 
     def save_bearer_token(self, token, request, *args, **kw):
-        return self._backend.store_access_token(request.client_id, token)
+        self.auth_store[token] = {
+            "client_id": request.client_id,
+            "scopes": request.scopes,
+        }
 
     def validate_client_id(self, client_id, request, *args, **kwargs):
         # Simple validity check, does client exist? Not banned?
-        request.client_id = client_id
+        pass
 
     def validate_redirect_uri(self, client_id, redirect_uri, request,
                               *args, **kwargs):
