@@ -14,6 +14,7 @@ setup(
     install_requires=[
         'cyclone',
         'oauthlib',
+        'go_api',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
