@@ -49,36 +49,36 @@ class StaticAuthValidator(RequestValidator):
 
     def validate_client_id(self, client_id, request, *args, **kwargs):
         # Simple validity check, does client exist? Not banned?
-        pass
+        raise NotImplementedError()
 
     def validate_redirect_uri(self, client_id, redirect_uri, request,
                               *args, **kwargs):
         # Is the client allowed to use the supplied redirect_uri? i.e. has
         # the client previously registered this EXACT redirect uri.
-        pass
+        raise NotImplementedError()
 
     def get_default_redirect_uri(self, client_id, request, *args, **kwargs):
         # The redirect used if none has been supplied.
         # Prefer your clients to pre register a redirect uri rather than
         # supplying one on each authorization request.
-        pass
+        raise NotImplementedError()
 
     def validate_scopes(self, client_id, scopes, client, request,
                         *args, **kwargs):
         # Is the client allowed to access the requested scopes?
-        pass
+        raise NotImplementedError()
 
     def get_default_scopes(self, client_id, request, *args, **kwargs):
         # Scopes a client will authorize for if none are supplied in the
         # authorization request.
-        pass
+        raise NotImplementedError()
 
     def validate_response_type(self, client_id, response_type, client, request,
                                *args, **kwargs):
         # Clients should only be allowed to use one type of response type, the
         # one associated with their one allowed grant type.
         # In this case it must be "code".
-        pass
+        raise NotImplementedError()
 
 
 def static_web_authenticator(auth_store):
