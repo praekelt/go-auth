@@ -42,10 +42,8 @@ class StaticAuthValidator(RequestValidator):
         return True
 
     def save_bearer_token(self, token, request, *args, **kw):
-        self.auth_store[token] = {
-            "client_id": request.client_id,
-            "scopes": request.scopes,
-        }
+        # Save the bearer token in the auth_store
+        raise NotImplementedError()
 
     def validate_client_id(self, client_id, request, *args, **kwargs):
         # Simple validity check, does client exist? Not banned?
