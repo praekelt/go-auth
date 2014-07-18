@@ -2,7 +2,7 @@
 """
 
 from oauthlib.oauth2 import RequestValidator, WebApplicationServer
-from oauthlib.common import Request
+from oauthlib.common import Request, generate_token
 from twisted.trial.unittest import TestCase
 
 from go_auth.validator import (
@@ -25,8 +25,10 @@ class TestAuthValidator(TestCase):
         self.auth = static_web_authenticator(self.auth_store)
         self.validator = self.auth.request_validator
 
-    def mk_cred(self, client_id="client-1", access_token="access-1",
+    def mk_cred(self, client_id="client-1", access_token=None,
                 scopes=("scope-a", "scope-b")):
+        if access_token is None:
+            access_token = generate_token()
         self.auth_store[access_token] = {
             "client_id": client_id,
             "scopes": list(scopes),
