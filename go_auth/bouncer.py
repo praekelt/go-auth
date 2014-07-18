@@ -38,7 +38,6 @@ Example scopes lists:
 """
 
 from cyclone.web import Application, RequestHandler, HTTPError
-from twisted.internet.defer import inlineCallbacks, returnValue
 
 from go_api.cyclone.handlers import read_yaml_config
 
