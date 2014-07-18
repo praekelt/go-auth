@@ -27,6 +27,7 @@ class TestBouncer(TestCase):
         configfile = self.mk_config({
             "auth_store": {
                 "access-1": {
+                    "owner_id": "owner-1",
                     "client_id": "client-1",
                     "scopes": ["scope-a", "scope-b"],
                 },
@@ -46,11 +47,12 @@ class TestBouncer(TestCase):
     def check_authorized(self, resp):
         self.assertEqual(resp.code, 200)
         self.assert_headers(resp, {
-            "X-Owner-ID": ["client-1"],
+            "X-Owner-ID": ["owner-1"],
+            "X-Client-ID": ["client-1"],
             "X-Scopes": ["scope-a scope-b"],
         })
         yield self.check_body(resp, (
-            "Authenticated as 'client-1' with scopes:"
+            "Authenticated client 'client-1' with scopes:"
             " ['scope-a', 'scope-b'].\n"))
 
     @inlineCallbacks
@@ -58,6 +60,7 @@ class TestBouncer(TestCase):
         self.assertEqual(resp.code, 401)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
+            "X-Client-ID": None,
             "X-Scopes": None,
         })
         yield self.check_body(resp, (
@@ -69,6 +72,7 @@ class TestBouncer(TestCase):
         self.assertEqual(resp.code, 403)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
+            "X-Client-ID": None,
             "X-Scopes": None,
         })
         yield self.check_body(resp, (

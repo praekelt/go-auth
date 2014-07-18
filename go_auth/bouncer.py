@@ -20,9 +20,11 @@ Example Nginx configuration::
         # this is the service that needs authentication
         auth_request /auth/;
         auth_request_set $owner_id $upstream_http_x_owner_id;
+        auth_request_set $client_id $upstream_http_x_client_id;
         auth_request_set $scopes $upstream_http_x_scopes;
         proxy_pass http://localhost:8888/;
         proxy_set_header X-Owner-ID $owner_id;
+        proxy_set_header X-Client-ID $client_id;
         proxy_set_header X-Scopes $scopes;
     }
 
@@ -67,17 +69,20 @@ class AuthHandler(RequestHandler):
             self.raise_authorization_required("OAuth2 required.")
         if not valid:
             self.raise_denied("Auth failed.")
+        if not request.owner_id:
+            self.raise_denied("Invalid owner id.")
         if not request.client_id:
-            self.raise_denied("Invalid client id.")
+            self.raised_denied("Invalid client id.")
         if not request.scopes:
             self.raise_denied("Invalid scopes.")
-        return (request.client_id, request.scopes)
+        return (request.owner_id, request.client_id, request.scopes)
 
     def get(self, *args, **kw):
-        client_id, scopes = self.check_oauth()
-        self.set_header("X-Owner-ID", client_id)
+        owner_id, client_id,  scopes = self.check_oauth()
+        self.set_header("X-Owner-ID", owner_id)
+        self.set_header("X-Client-ID", client_id)
         self.set_header("X-Scopes", " ".join(scopes))
-        self.write("Authenticated as %r with scopes: %r.\n"
+        self.write("Authenticated client %r with scopes: %r.\n"
                    % (client_id, scopes))
 
 

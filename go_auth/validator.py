@@ -17,6 +17,7 @@ class StaticAuthValidator(RequestValidator):
 
        {
            "ac3sst0k3n": {
+               "owner_id": "0wn3r1d",
                "client_id": "cl13nt51d",
                "scopes": ["scope1", "scope2"],
            },
@@ -35,6 +36,7 @@ class StaticAuthValidator(RequestValidator):
         creds = self.auth_store.get(token)
         if creds is None:
             return False
+        request.owner_id = creds["owner_id"]
         request.client_id = creds["client_id"]
         request.scopes = creds["scopes"]
         return True

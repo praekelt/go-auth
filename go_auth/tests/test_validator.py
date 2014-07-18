@@ -25,15 +25,16 @@ class TestAuthValidator(TestCase):
         self.auth = static_web_authenticator(self.auth_store)
         self.validator = self.auth.request_validator
 
-    def mk_cred(self, client_id="client-1", access_token=None,
-                scopes=("scope-a", "scope-b")):
+    def mk_cred(self, owner_id="owner-1", client_id="client-1",
+                access_token=None, scopes=("scope-a", "scope-b")):
         if access_token is None:
             access_token = generate_token()
         self.auth_store[access_token] = {
+            "owner_id": owner_id,
             "client_id": client_id,
             "scopes": list(scopes),
         }
-        return client_id, access_token
+        return owner_id, client_id, access_token
 
     def mk_request(self, client_id):
         return Request("http://example.com/?client_id=%s" % (client_id,))
@@ -42,17 +43,18 @@ class TestAuthValidator(TestCase):
         self.assertTrue(isinstance(self.validator, RequestValidator))
 
     def test_valid_credentials_in_query(self):
-        client_id, access_token = self.mk_cred()
+        owner_id, client_id, access_token = self.mk_cred()
         uri = "http://example.com/?access_token=%s" % access_token
         valid, request = self.auth.verify_request(
             uri, http_method="GET", headers={}, scopes=None)
         self.assertEqual(valid, True)
         self.assertEqual(request.token, access_token)
+        self.assertEqual(request.owner_id, owner_id)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
 
     def test_valid_credentials_in_headers(self):
-        client_id, access_token = self.mk_cred()
+        owner_id, client_id, access_token = self.mk_cred()
         uri = "http://example.com/"
         headers = {
             "Authorization": "Bearer %s" % (access_token,),
@@ -61,5 +63,6 @@ class TestAuthValidator(TestCase):
             uri, http_method="GET", headers=headers, scopes=None)
         self.assertEqual(valid, True)
         self.assertEqual(request.token, access_token)
+        self.assertEqual(request.owner_id, owner_id)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
