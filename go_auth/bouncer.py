@@ -64,11 +64,10 @@ class AuthHandler(RequestHandler):
             self.raise_unauthorized("Invalid client id.")
         if not request.scopes:
             self.raise_unauthorized("Invalid scopes.")
-        returnValue((request.client_id, request.scopes))
+        return (request.client_id, request.scopes)
 
-    @inlineCallbacks
     def get(self, *args, **kw):
-        client_id, scopes = yield self.check_oauth()
+        client_id, scopes = self.check_oauth()
         self.set_header("X-Owner-ID", client_id)
         self.set_header("X-Scopes", " ".join(scopes))
         self.write("Authenticated as %r with scopes: %r.\n"

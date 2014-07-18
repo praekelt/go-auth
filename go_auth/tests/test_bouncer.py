@@ -34,26 +34,56 @@ class TestBouncer(TestCase):
         })
         return Bouncer(configfile)
 
+    def assert_headers(self, resp, headers):
+        for key, value in sorted(headers.items()):
+            self.assertEqual(resp.headers.getRawHeaders(key), value)
+
+    @inlineCallbacks
+    def check_body(self, resp, body):
+        self.assertEqual((yield resp.text()), body)
+
+    @inlineCallbacks
+    def check_authorized(self, resp):
+        self.assertEqual(resp.code, 200)
+        self.assert_headers(resp, {
+            "X-Owner-ID": ["client-1"],
+            "X-Scopes": ["scope-a scope-b"],
+        })
+        yield self.check_body(resp, (
+            "Authenticated as 'client-1' with scopes:"
+            " ['scope-a', 'scope-b'].\n"))
+
+    @inlineCallbacks
+    def check_not_authorized(self, resp):
+        self.assertEqual(resp.code, 401)
+        self.assert_headers(resp, {
+            "X-Owner-ID": None,
+            "X-Scopes": None,
+        })
+        yield self.check_body(resp, (
+            "<html><title>401: Unauthorized</title><body>401:"
+            " Unauthorized</body></html>"))
+
     @inlineCallbacks
     def test_valid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=access-1')
-        self.assertEqual(resp.code, 200)
+        yield self.check_authorized(resp)
 
     @inlineCallbacks
     def test_invalid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=unknown-1')
-        self.assertEqual(resp.code, 401)
+        yield self.check_not_authorized(resp)
 
     @inlineCallbacks
     def test_valid_credentials_in_headers(self):
         resp = yield self.app_helper.get('/foo/', headers={
             'Authorization': 'Bearer access-1',
         })
-        self.assertEqual(resp.code, 200)
+        yield self.check_authorized(resp)
 
     @inlineCallbacks
     def test_invalid_credentials_in_headers(self):
         resp = yield self.app_helper.get('/foo/', headers={
             'Authorization': 'Bearer unknown-1',
         })
-        self.assertEqual(resp.code, 401)
+        yield self.check_not_authorized(resp)
