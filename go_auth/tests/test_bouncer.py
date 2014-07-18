@@ -40,70 +40,70 @@ class TestBouncer(TestCase):
             self.assertEqual(resp.headers.getRawHeaders(key), value)
 
     @inlineCallbacks
-    def check_body(self, resp, body):
+    def assert_body(self, resp, body):
         self.assertEqual((yield resp.text()), body)
 
     @inlineCallbacks
-    def check_authorized(self, resp):
+    def assert_authorized(self, resp):
         self.assertEqual(resp.code, 200)
         self.assert_headers(resp, {
             "X-Owner-ID": ["owner-1"],
             "X-Client-ID": ["client-1"],
             "X-Scopes": ["scope-a scope-b"],
         })
-        yield self.check_body(resp, (
+        yield self.assert_body(resp, (
             "Authenticated client 'client-1' with scopes:"
             " ['scope-a', 'scope-b'].\n"))
 
     @inlineCallbacks
-    def check_unauthorized(self, resp):
+    def assert_unauthorized(self, resp):
         self.assertEqual(resp.code, 401)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
             "X-Client-ID": None,
             "X-Scopes": None,
         })
-        yield self.check_body(resp, (
+        yield self.assert_body(resp, (
             "<html><title>401: Unauthorized</title><body>401:"
             " Unauthorized</body></html>"))
 
     @inlineCallbacks
-    def check_forbidden(self, resp):
+    def assert_forbidden(self, resp):
         self.assertEqual(resp.code, 403)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
             "X-Client-ID": None,
             "X-Scopes": None,
         })
-        yield self.check_body(resp, (
+        yield self.assert_body(resp, (
             "<html><title>403: Forbidden</title><body>403:"
             " Forbidden</body></html>"))
 
     @inlineCallbacks
     def test_valid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=access-1')
-        yield self.check_authorized(resp)
+        yield self.assert_authorized(resp)
 
     @inlineCallbacks
     def test_invalid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=unknown-1')
-        yield self.check_forbidden(resp)
+        yield self.assert_forbidden(resp)
 
     @inlineCallbacks
     def test_valid_credentials_in_headers(self):
         resp = yield self.app_helper.get('/foo/', headers={
             'Authorization': 'Bearer access-1',
         })
-        yield self.check_authorized(resp)
+        yield self.assert_authorized(resp)
 
     @inlineCallbacks
     def test_invalid_credentials_in_headers(self):
         resp = yield self.app_helper.get('/foo/', headers={
             'Authorization': 'Bearer unknown-1',
         })
-        yield self.check_forbidden(resp)
+        yield self.assert_forbidden(resp)
 
     @inlineCallbacks
     def test_no_credentials(self):
         resp = yield self.app_helper.get('/foo/')
-        yield self.check_unauthorized(resp)
+        yield self.assert_unauthorized(resp)
