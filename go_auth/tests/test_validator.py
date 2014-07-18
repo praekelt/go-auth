@@ -47,6 +47,7 @@ class TestAuthValidator(TestCase):
         valid, request = self.auth.verify_request(
             uri, http_method="GET", headers={}, scopes=None)
         self.assertEqual(valid, True)
+        self.assertEqual(request.token, access_token)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
 
@@ -59,5 +60,6 @@ class TestAuthValidator(TestCase):
         valid, request = self.auth.verify_request(
             uri, http_method="GET", headers=headers, scopes=None)
         self.assertEqual(valid, True)
+        self.assertEqual(request.token, access_token)
         self.assertEqual(request.client_id, client_id)
         self.assertEqual(request.scopes, ["scope-a", "scope-b"])
