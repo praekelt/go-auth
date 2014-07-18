@@ -37,52 +37,54 @@ Example scopes lists:
 * ``messages-read messages-sensititve-read``
 """
 
-import base64
-
-
 from cyclone.web import Application, RequestHandler, HTTPError
+from twisted.internet.defer import inlineCallbacks, returnValue
+
+from go_api.cyclone.handlers import read_yaml_config
+
+from .validator import static_web_authenticator
 
 
 class AuthHandler(RequestHandler):
 
+    def initialize(self, auth):
+        self.auth = auth
+
     def raise_unauthorized(self, reason):
-            self.set_header("WWW-Authenticate", 'Basic realm="Vumi Go"')
-            raise HTTPError(401, reason)
+        self.set_header("WWW-Authenticate", 'Basic realm="Vumi Go"')
+        raise HTTPError(401, reason)
 
-    def check_credentials(self, username, password):
-        if password == "passx":
-            return True
-        return False
+    def check_oauth(self):
+        valid, request = self.auth.verify_request(
+            self.request.uri, http_method=self.request.method,
+            headers=self.request.headers, scopes=None)
+        if not valid:
+            self.raise_unauthorized("Auth failed.")
+        if not request.client_id:
+            self.raise_unauthorized("Invalid client id.")
+        if not request.scopes:
+            self.raise_unauthorized("Invalid scopes.")
+        returnValue((request.client_id, request.scopes))
 
-    def check_authentication(self):
-        auth = self.request.headers.get('Authorization')
-        if auth is None:
-            self.raise_unauthorized("Not authenticated")
-        auth_type, _, raw_auth_data = auth.partition(" ")
-        if auth_type != "Basic":
-            self.raise_unauthorized("Only basic authentication supported")
-        try:
-            auth_data = base64.decodestring(raw_auth_data)
-        except:
-            self.raise_unauthorized("Invalid authentication data")
-        username, _, password = auth_data.partition(":")
-        if not self.check_credentials(username, password):
-            self.raise_unauthorized("Invalid credentials")
-        return username
-
+    @inlineCallbacks
     def get(self, *args, **kw):
-        username = self.check_authentication()
-        self.set_header("X-Owner-ID", username)
-        self.write("Authenticated as %r.\n" % (username,))
+        client_id, scopes = yield self.check_oauth()
+        self.set_header("X-Owner-ID", client_id)
+        self.set_header("X-Scopes", " ".join(scopes))
+        self.write("Authenticated as %r with scopes: %r.\n"
+                   % (client_id, scopes))
 
 
-class AuthServer(Application):
+class Bouncer(Application):
     """
-    Go authentication service.
+    Go authentication bouncer service.
     """
 
-    def __init__(self, **settings):
+    def __init__(self, configfile, **settings):
+        self.config = read_yaml_config(configfile)
+        self.auth_store = self.config['auth_store']
+        self.auth = static_web_authenticator(self.auth_store)
         routes = [
-            (".*", AuthHandler),
+            (".*", AuthHandler, {"auth": self.auth}),
         ]
-        Application.__init__(self, routes, **settings)
+        Application.__init__(self, routes, debug=True, **settings)
