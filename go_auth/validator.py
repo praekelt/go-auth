@@ -29,6 +29,7 @@ class StaticAuthValidator(RequestValidator):
         self.auth_store = auth_store
 
     def validate_bearer_token(self, token, scopes, request):
+        request.token = token
         if token is None:
             return False
         creds = self.auth_store.get(token)

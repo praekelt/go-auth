@@ -54,15 +54,15 @@ class TestBouncer(TestCase):
             " ['scope-a', 'scope-b'].\n"))
 
     @inlineCallbacks
-    def check_not_authorized(self, resp):
-        self.assertEqual(resp.code, 401)
+    def check_denied(self, resp):
+        self.assertEqual(resp.code, 403)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
             "X-Scopes": None,
         })
         yield self.check_body(resp, (
-            "<html><title>401: Unauthorized</title><body>401:"
-            " Unauthorized</body></html>"))
+            "<html><title>403: Forbidden</title><body>403:"
+            " Forbidden</body></html>"))
 
     @inlineCallbacks
     def test_valid_credentials_in_query(self):
@@ -72,7 +72,7 @@ class TestBouncer(TestCase):
     @inlineCallbacks
     def test_invalid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=unknown-1')
-        yield self.check_not_authorized(resp)
+        yield self.check_denied(resp)
 
     @inlineCallbacks
     def test_valid_credentials_in_headers(self):
@@ -86,4 +86,4 @@ class TestBouncer(TestCase):
         resp = yield self.app_helper.get('/foo/', headers={
             'Authorization': 'Bearer unknown-1',
         })
-        yield self.check_not_authorized(resp)
+        yield self.check_denied(resp)

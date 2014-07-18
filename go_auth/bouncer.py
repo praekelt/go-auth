@@ -17,6 +17,7 @@ add to the original request:
 Example Nginx configuration::
 
     location /api/ {
+        # this is the service that needs authentication
         auth_request /auth/;
         auth_request_set $owner_id $upstream_http_x_owner_id;
         auth_request_set $scopes $upstream_http_x_scopes;
@@ -26,6 +27,7 @@ Example Nginx configuration::
     }
 
     location /auth/ {
+        # this is the bouncer
         internal;
         proxy_pass http://localhost:8889/;
     }
@@ -37,7 +39,8 @@ Example scopes lists:
 * ``messages-read messages-sensititve-read``
 """
 
-from cyclone.web import Application, RequestHandler, HTTPError
+from cyclone.web import (
+    Application, RequestHandler, HTTPError, HTTPAuthenticationRequired)
 
 from go_api.cyclone.handlers import read_yaml_config
 
@@ -49,20 +52,25 @@ class AuthHandler(RequestHandler):
     def initialize(self, auth):
         self.auth = auth
 
-    def raise_unauthorized(self, reason):
-        self.set_header("WWW-Authenticate", 'Basic realm="Vumi Go"')
-        raise HTTPError(401, reason)
+    def raise_authorization_required(self, reason):
+        raise HTTPAuthenticationRequired(
+            log_message=reason, auth_type="Basic", realm="Vumi Go")
+
+    def raise_denied(self, reason):
+        raise HTTPError(403, reason=reason)
 
     def check_oauth(self):
         valid, request = self.auth.verify_request(
             self.request.uri, http_method=self.request.method,
             headers=self.request.headers, scopes=None)
+        if request.token is None:
+            self.raise_authorization_required("OAuth2 required.")
         if not valid:
-            self.raise_unauthorized("Auth failed.")
+            self.raise_denied("Auth failed.")
         if not request.client_id:
-            self.raise_unauthorized("Invalid client id.")
+            self.raise_denied("Invalid client id.")
         if not request.scopes:
-            self.raise_unauthorized("Invalid scopes.")
+            self.raise_denied("Invalid scopes.")
         return (request.client_id, request.scopes)
 
     def get(self, *args, **kw):
