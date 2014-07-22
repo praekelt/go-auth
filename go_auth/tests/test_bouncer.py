@@ -11,20 +11,20 @@ from go_api.cyclone.helpers import AppHelper
 from go_auth.bouncer import Bouncer
 
 
+def mk_config(tempfile, config_dict):
+    with open(tempfile, 'wb') as fp:
+        yaml.safe_dump(config_dict, fp)
+    return tempfile
+
+
 class TestBouncer(TestCase):
     def setUp(self):
         self.api = self.mk_api()
         self.auth_store = self.api.auth_store
         self.app_helper = AppHelper(app=self.api)
 
-    def mk_config(self, config_dict):
-        tempfile = self.mktemp()
-        with open(tempfile, 'wb') as fp:
-            yaml.safe_dump(config_dict, fp)
-        return tempfile
-
     def mk_api(self):
-        configfile = self.mk_config({
+        configfile = mk_config(self.mktemp(), {
             "auth_store": {
                 "access-1": {
                     "owner_id": "owner-1",
