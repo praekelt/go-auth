@@ -3,12 +3,12 @@
 
 import yaml
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 
-from go_api.cyclone.helpers import AppHelper
+from go_api.cyclone.helpers import AppHelper, MockHttpServer
 
-from go_auth.bouncer import Bouncer
+from go_auth.bouncer import Bouncer, Proxier
 
 
 def mk_config(tempfile, config_dict):
@@ -17,23 +17,25 @@ def mk_config(tempfile, config_dict):
     return tempfile
 
 
+def mk_bouncer_config(tempfile, **kw):
+    config_dict = {
+        "auth_store": {
+            "access-1": {
+                "owner_id": "owner-1",
+                "client_id": "client-1",
+                "scopes": ["scope-a", "scope-b"],
+            },
+        }
+    }
+    config_dict.update(kw)
+    return mk_config(tempfile, config_dict)
+
+
 class TestBouncer(TestCase):
     def setUp(self):
-        self.api = self.mk_api()
+        self.api = Bouncer(mk_bouncer_config(self.mktemp()))
         self.auth_store = self.api.auth_store
         self.app_helper = AppHelper(app=self.api)
-
-    def mk_api(self):
-        configfile = mk_config(self.mktemp(), {
-            "auth_store": {
-                "access-1": {
-                    "owner_id": "owner-1",
-                    "client_id": "client-1",
-                    "scopes": ["scope-a", "scope-b"],
-                },
-            },
-        })
-        return Bouncer(configfile)
 
     def assert_headers(self, resp, headers):
         for key, value in sorted(headers.items()):
@@ -107,3 +109,34 @@ class TestBouncer(TestCase):
     def test_no_credentials(self):
         resp = yield self.app_helper.get('/foo/')
         yield self.assert_unauthorized(resp)
+
+
+class TestProxier(TestCase):
+    def setUp(self):
+        self.cleanups = []
+
+    @inlineCallbacks
+    def tearDown(self):
+        for fn in reversed(self.cleanups):
+            yield fn()
+
+    @inlineCallbacks
+    def mk_server(self, handler=None):
+        server = MockHttpServer(handler)
+        yield server.start()
+
+        self.cleanups.append(server.stop)
+        returnValue(server)
+
+    @inlineCallbacks
+    def test_proxy_response(self):
+        server = yield self.mk_server(lambda _: "bar")
+
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        resp = yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        self.assertEqual((yield resp.text()), "bar")
