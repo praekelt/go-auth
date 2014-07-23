@@ -50,7 +50,7 @@ import treq
 
 from go_api.cyclone.handlers import read_yaml_config
 
-from .validator import static_web_authenticator
+from go_auth.validator import static_web_authenticator
 
 
 class BounceAuthHandler(RequestHandler):
