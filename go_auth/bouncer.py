@@ -82,7 +82,7 @@ class BounceAuthHandler(RequestHandler):
         return (request.owner_id, request.client_id, request.scopes)
 
     def get(self, *args, **kw):
-        owner_id, client_id,  scopes = self.check_oauth()
+        owner_id, client_id, scopes = self.check_oauth()
         self.set_header("X-Owner-ID", owner_id)
         self.set_header("X-Client-ID", client_id)
         self.set_header("X-Scopes", " ".join(scopes))
@@ -93,7 +93,7 @@ class BounceAuthHandler(RequestHandler):
 class ProxyAuthHandler(BounceAuthHandler):
     @inlineCallbacks
     def get(self, *args, **kw):
-        owner_id, client_id,  scopes = self.check_oauth()
+        owner_id, client_id, scopes = self.check_oauth()
         headers = self.request.headers.copy()
         headers["X-Owner-ID"] = owner_id
         headers["X-Client-ID"] = client_id
