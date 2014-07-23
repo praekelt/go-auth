@@ -94,8 +94,10 @@ class BounceAuthHandler(RequestHandler):
 
 
 class ProxyAuthHandler(BounceAuthHandler):
+    # TODO investigate why DELETE and PATCH don't work
+
     @inlineCallbacks
-    def get(self, *args, **kw):
+    def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
         headers = self.request.headers.copy()
         headers["X-Owner-ID"] = owner_id
@@ -110,6 +112,18 @@ class ProxyAuthHandler(BounceAuthHandler):
                 self.set_header(header, item)
         body = yield resp.text()
         self.write(body)
+
+    def head(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def get(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def post(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def put(self, *args, **kw):
+        return self.default(*args, **kw)
 
     def proxy_url(self, url):
         return urljoin(self.config['proxy_url'], url)

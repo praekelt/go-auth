@@ -140,3 +140,25 @@ class TestProxier(TestCase):
         })
 
         self.assertEqual((yield resp.text()), "bar")
+
+    @inlineCallbacks
+    def test_proxy_methods(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        headers = {'Authorization': 'Bearer access-1'}
+        yield helper.request('HEAD', '/foo/', headers=headers)
+        yield helper.request('GET', '/foo/', headers=headers)
+        yield helper.request('POST', '/foo/', headers=headers)
+        yield helper.request('PUT', '/foo/', headers=headers)
+
+        self.assertEqual(
+            ['HEAD', 'GET', 'POST', 'PUT'],
+            [r.method for r in reqs])
