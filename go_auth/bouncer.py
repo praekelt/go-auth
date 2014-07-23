@@ -109,7 +109,7 @@ class ProxyAuthHandler(BounceAuthHandler):
         self.set_status(resp.code)
         for header, items in resp.headers.getAllRawHeaders():
             for item in items:
-                self.set_header(header, item)
+                self.add_header(header, item)
         body = yield resp.text()
         self.write(body)
 

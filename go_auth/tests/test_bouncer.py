@@ -129,19 +129,6 @@ class TestProxier(TestCase):
         returnValue(server)
 
     @inlineCallbacks
-    def test_proxy_response(self):
-        server = yield self.mk_server(lambda _: "bar")
-
-        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
-        helper = AppHelper(app=Proxier(config))
-
-        resp = yield helper.get('/foo/', headers={
-            'Authorization': 'Bearer access-1'
-        })
-
-        self.assertEqual((yield resp.text()), "bar")
-
-    @inlineCallbacks
     def test_proxy_methods(self):
         reqs = []
 
@@ -162,3 +149,110 @@ class TestProxier(TestCase):
         self.assertEqual(
             ['HEAD', 'GET', 'POST', 'PUT'],
             [r.method for r in reqs])
+
+    @inlineCallbacks
+    def test_proxy_custom_headers(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1',
+            'X-Foo': 'Bar',
+            'X-Baz': ['Quux', 'Corge']
+        })
+
+        [req] = reqs
+        headers = dict(req.requestHeaders.getAllRawHeaders())
+        self.assertEqual(headers['X-Foo'], ['Bar'])
+        self.assertEqual(headers['X-Baz'], ['Quux,Corge'])
+
+    @inlineCallbacks
+    def test_proxy_auth_headers(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+        yield helper.get('/foo/', headers={'Authorization': 'Bearer access-1'})
+
+        [req] = reqs
+        headers = dict(req.requestHeaders.getAllRawHeaders())
+        self.assertEqual(headers["X-Owner-Id"], ["owner-1"])
+        self.assertEqual(headers["X-Client-Id"], ["client-1"])
+        self.assertEqual(headers["X-Scopes"], ["scope-a scope-b"])
+
+    @inlineCallbacks
+    def test_proxy_uri(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+        yield helper.get('/foo/', headers={'Authorization': 'Bearer access-1'})
+
+        [req] = reqs
+        self.assertEqual(req.uri, '/foo/')
+
+    @inlineCallbacks
+    def test_proxy_body(self):
+        data = []
+
+        def handler(req):
+            data.append(req.content.read())
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        yield helper.get('/foo/', data='bar', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        self.assertEqual(data, ['bar'])
+
+    @inlineCallbacks
+    def test_proxy_response_body(self):
+        server = yield self.mk_server(lambda _: "bar")
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        resp = yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        self.assertEqual((yield resp.text()), "bar")
+
+    @inlineCallbacks
+    def test_proxy_response_headers(self):
+        def handler(req):
+            req.responseHeaders.setRawHeaders('X-Foo', ['Bar'])
+            req.responseHeaders.setRawHeaders('X-Baz', ['Quux', 'Corge'])
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        resp = yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        headers = dict(resp.headers.getAllRawHeaders())
+        self.assertEqual(headers['X-Foo'], ['Bar'])
+        self.assertEqual(headers['X-Baz'], ['Quux', 'Corge'])
