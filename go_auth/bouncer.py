@@ -41,6 +41,8 @@ Example scopes lists:
 * ``messages-read messages-sensititve-read``
 """
 
+from urlparse import urljoin
+
 from twisted.internet.defer import inlineCallbacks
 
 from cyclone.web import (
@@ -55,8 +57,9 @@ from go_auth.validator import static_web_authenticator
 
 class BounceAuthHandler(RequestHandler):
 
-    def initialize(self, auth):
+    def initialize(self, auth, config):
         self.auth = auth
+        self.config = config
 
     def raise_authorization_required(self, reason):
         raise HTTPAuthenticationRequired(
@@ -99,14 +102,17 @@ class ProxyAuthHandler(BounceAuthHandler):
         headers["X-Client-ID"] = client_id
         headers["X-Scopes"] = " ".join(scopes)
         resp = yield treq.request(
-            self.request.method, self.request.uri,
+            self.request.method, self.proxy_url(self.request.uri),
             headers=headers, data=self.request.body)
         self.set_status(resp.code)
-        for header, items in resp.headers.getAllRawHeaders().items():
+        for header, items in resp.headers.getAllRawHeaders():
             for item in items:
                 self.set_header(header, item)
         body = yield resp.text()
         self.write(body)
+
+    def proxy_url(self, url):
+        return urljoin(self.config['proxy_url'], url)
 
 
 class Bouncer(Application):
@@ -120,9 +126,16 @@ class Bouncer(Application):
         self.config = read_yaml_config(configfile)
         self.auth_store = self.config['auth_store']
         self.auth = static_web_authenticator(self.auth_store)
+
+        kwargs = {
+            "auth": self.auth,
+            "config": self.config,
+        }
+
         routes = [
-            (".*", self.AUTH_CLASS, {"auth": self.auth}),
+            (".*", self.AUTH_CLASS, kwargs),
         ]
+
         Application.__init__(self, routes, **settings)
 
 
