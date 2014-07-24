@@ -137,9 +137,12 @@ class TestProxier(TestCase):
         yield helper.request('GET', '/foo/', headers=headers)
         yield helper.request('POST', '/foo/', headers=headers)
         yield helper.request('PUT', '/foo/', headers=headers)
+        yield helper.request('PATCH', '/foo/', headers=headers)
+        yield helper.request('DELETE', '/foo/', headers=headers)
+        yield helper.request('OPTIONS', '/foo/', headers=headers)
 
         self.assertEqual(
-            ['HEAD', 'GET', 'POST', 'PUT'],
+            ['HEAD', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             [r.method for r in reqs])
 
     @inlineCallbacks
