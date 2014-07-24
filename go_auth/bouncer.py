@@ -94,8 +94,6 @@ class BounceAuthHandler(RequestHandler):
 
 
 class ProxyAuthHandler(BounceAuthHandler):
-    # TODO investigate why DELETE and PATCH don't work
-
     @inlineCallbacks
     def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
@@ -123,6 +121,12 @@ class ProxyAuthHandler(BounceAuthHandler):
         return self.default(*args, **kw)
 
     def put(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def patch(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def delete(self, *args, **kw):
         return self.default(*args, **kw)
 
     def proxy_url(self, url):

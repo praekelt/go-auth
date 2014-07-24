@@ -112,20 +112,12 @@ class TestBouncer(TestCase):
 
 
 class TestProxier(TestCase):
-    def setUp(self):
-        self.cleanups = []
-
-    @inlineCallbacks
-    def tearDown(self):
-        for fn in reversed(self.cleanups):
-            yield fn()
-
     @inlineCallbacks
     def mk_server(self, handler=None):
         server = MockHttpServer(handler)
         yield server.start()
 
-        self.cleanups.append(server.stop)
+        self.addCleanup(server.stop)
         returnValue(server)
 
     @inlineCallbacks
