@@ -129,6 +129,9 @@ class ProxyAuthHandler(BounceAuthHandler):
     def delete(self, *args, **kw):
         return self.default(*args, **kw)
 
+    def options(self, *args, **kw):
+        return self.default(*args, **kw)
+
     def proxy_url(self, url):
         return urljoin(self.config['proxy_url'], url)
 
