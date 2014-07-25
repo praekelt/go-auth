@@ -94,6 +94,11 @@ class BounceAuthHandler(RequestHandler):
 
 
 class ProxyAuthHandler(BounceAuthHandler):
+    # NOTE: cyclone supports a `default` handler as opossed to specifying each
+    # method type handler explicitly. The current version of cyclone available
+    # on pypi (v1.1) does not support this though, thus the need for these
+    # explicit handlers
+
     @inlineCallbacks
     def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
