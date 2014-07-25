@@ -94,8 +94,6 @@ class BounceAuthHandler(RequestHandler):
 
 
 class ProxyAuthHandler(BounceAuthHandler):
-    # TODO investigate why DELETE and PATCH don't work
-
     @inlineCallbacks
     def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
