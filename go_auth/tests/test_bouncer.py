@@ -3,37 +3,39 @@
 
 import yaml
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 
-from go_api.cyclone.helpers import AppHelper
+from go_api.cyclone.helpers import AppHelper, MockHttpServer
 
-from go_auth.bouncer import Bouncer
+from go_auth.bouncer import Bouncer, Proxier
+
+
+def mk_config(tempfile, config_dict):
+    with open(tempfile, 'wb') as fp:
+        yaml.safe_dump(config_dict, fp)
+    return tempfile
+
+
+def mk_bouncer_config(tempfile, **kw):
+    config_dict = {
+        "auth_store": {
+            "access-1": {
+                "owner_id": "owner-1",
+                "client_id": "client-1",
+                "scopes": ["scope-a", "scope-b"],
+            },
+        }
+    }
+    config_dict.update(kw)
+    return mk_config(tempfile, config_dict)
 
 
 class TestBouncer(TestCase):
     def setUp(self):
-        self.api = self.mk_api()
+        self.api = Bouncer(mk_bouncer_config(self.mktemp()))
         self.auth_store = self.api.auth_store
         self.app_helper = AppHelper(app=self.api)
-
-    def mk_config(self, config_dict):
-        tempfile = self.mktemp()
-        with open(tempfile, 'wb') as fp:
-            yaml.safe_dump(config_dict, fp)
-        return tempfile
-
-    def mk_api(self):
-        configfile = self.mk_config({
-            "auth_store": {
-                "access-1": {
-                    "owner_id": "owner-1",
-                    "client_id": "client-1",
-                    "scopes": ["scope-a", "scope-b"],
-                },
-            },
-        })
-        return Bouncer(configfile)
 
     def assert_headers(self, resp, headers):
         for key, value in sorted(headers.items()):
@@ -107,3 +109,145 @@ class TestBouncer(TestCase):
     def test_no_credentials(self):
         resp = yield self.app_helper.get('/foo/')
         yield self.assert_unauthorized(resp)
+
+
+class TestProxier(TestCase):
+    @inlineCallbacks
+    def mk_server(self, handler=None):
+        server = MockHttpServer(handler)
+        yield server.start()
+
+        self.addCleanup(server.stop)
+        returnValue(server)
+
+    @inlineCallbacks
+    def test_proxy_methods(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        headers = {'Authorization': 'Bearer access-1'}
+        yield helper.request('HEAD', '/foo/', headers=headers)
+        yield helper.request('GET', '/foo/', headers=headers)
+        yield helper.request('POST', '/foo/', headers=headers)
+        yield helper.request('PUT', '/foo/', headers=headers)
+        yield helper.request('PATCH', '/foo/', headers=headers)
+        yield helper.request('DELETE', '/foo/', headers=headers)
+        yield helper.request('OPTIONS', '/foo/', headers=headers)
+
+        self.assertEqual(
+            ['HEAD', 'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            [r.method for r in reqs])
+
+    @inlineCallbacks
+    def test_proxy_custom_headers(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1',
+            'X-Foo': 'Bar',
+            'X-Baz': ['Quux', 'Corge']
+        })
+
+        [req] = reqs
+        headers = dict(req.requestHeaders.getAllRawHeaders())
+        self.assertEqual(headers['X-Foo'], ['Bar'])
+        self.assertEqual(headers['X-Baz'], ['Quux,Corge'])
+
+    @inlineCallbacks
+    def test_proxy_auth_headers(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+        yield helper.get('/foo/', headers={'Authorization': 'Bearer access-1'})
+
+        [req] = reqs
+        headers = dict(req.requestHeaders.getAllRawHeaders())
+        self.assertEqual(headers["X-Owner-Id"], ["owner-1"])
+        self.assertEqual(headers["X-Client-Id"], ["client-1"])
+        self.assertEqual(headers["X-Scopes"], ["scope-a scope-b"])
+
+    @inlineCallbacks
+    def test_proxy_uri(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+        yield helper.get('/foo/', headers={'Authorization': 'Bearer access-1'})
+
+        [req] = reqs
+        self.assertEqual(req.uri, '/foo/')
+
+    @inlineCallbacks
+    def test_proxy_body(self):
+        data = []
+
+        def handler(req):
+            data.append(req.content.read())
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        yield helper.get('/foo/', data='bar', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        self.assertEqual(data, ['bar'])
+
+    @inlineCallbacks
+    def test_proxy_response_body(self):
+        server = yield self.mk_server(lambda _: "bar")
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        resp = yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        self.assertEqual((yield resp.text()), "bar")
+
+    @inlineCallbacks
+    def test_proxy_response_headers(self):
+        def handler(req):
+            req.responseHeaders.setRawHeaders('X-Foo', ['Bar'])
+            req.responseHeaders.setRawHeaders('X-Baz', ['Quux', 'Corge'])
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        resp = yield helper.get('/foo/', headers={
+            'Authorization': 'Bearer access-1'
+        })
+
+        headers = dict(resp.headers.getAllRawHeaders())
+        self.assertEqual(headers['X-Foo'], ['Bar'])
+        self.assertEqual(headers['X-Baz'], ['Quux', 'Corge'])

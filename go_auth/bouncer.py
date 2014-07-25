@@ -41,18 +41,25 @@ Example scopes lists:
 * ``messages-read messages-sensititve-read``
 """
 
+from urlparse import urljoin
+
+from twisted.internet.defer import inlineCallbacks
+
 from cyclone.web import (
     Application, RequestHandler, HTTPError, HTTPAuthenticationRequired)
+
+import treq
 
 from go_api.cyclone.handlers import read_yaml_config
 
 from go_auth.validator import static_web_authenticator
 
 
-class AuthHandler(RequestHandler):
+class BounceAuthHandler(RequestHandler):
 
-    def initialize(self, auth):
+    def initialize(self, auth, config):
         self.auth = auth
+        self.config = config
 
     def raise_authorization_required(self, reason):
         raise HTTPAuthenticationRequired(
@@ -78,7 +85,7 @@ class AuthHandler(RequestHandler):
         return (request.owner_id, request.client_id, request.scopes)
 
     def get(self, *args, **kw):
-        owner_id, client_id,  scopes = self.check_oauth()
+        owner_id, client_id, scopes = self.check_oauth()
         self.set_header("X-Owner-ID", owner_id)
         self.set_header("X-Client-ID", client_id)
         self.set_header("X-Scopes", " ".join(scopes))
@@ -86,16 +93,81 @@ class AuthHandler(RequestHandler):
                    % (client_id, scopes))
 
 
+class ProxyAuthHandler(BounceAuthHandler):
+    # NOTE: cyclone supports a `default` handler as opossed to specifying each
+    # method type handler explicitly. The current version of cyclone available
+    # on pypi (v1.1) does not support this though, thus the need for these
+    # explicit handlers
+
+    @inlineCallbacks
+    def default(self, *args, **kw):
+        owner_id, client_id, scopes = self.check_oauth()
+        headers = self.request.headers.copy()
+        headers["X-Owner-ID"] = owner_id
+        headers["X-Client-ID"] = client_id
+        headers["X-Scopes"] = " ".join(scopes)
+        resp = yield treq.request(
+            self.request.method, self.proxy_url(self.request.uri),
+            headers=headers, data=self.request.body)
+        self.set_status(resp.code)
+        for header, items in resp.headers.getAllRawHeaders():
+            for item in items:
+                self.add_header(header, item)
+        body = yield resp.text()
+        self.write(body)
+
+    def head(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def get(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def post(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def put(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def patch(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def delete(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def options(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def proxy_url(self, url):
+        return urljoin(self.config['proxy_url'], url)
+
+
 class Bouncer(Application):
     """
     Go authentication bouncer service.
     """
 
+    AUTH_CLASS = BounceAuthHandler
+
     def __init__(self, configfile, **settings):
         self.config = read_yaml_config(configfile)
         self.auth_store = self.config['auth_store']
         self.auth = static_web_authenticator(self.auth_store)
+
+        kwargs = {
+            "auth": self.auth,
+            "config": self.config,
+        }
+
         routes = [
-            (".*", AuthHandler, {"auth": self.auth}),
+            (".*", self.AUTH_CLASS, kwargs),
         ]
+
         Application.__init__(self, routes, **settings)
+
+
+class Proxier(Bouncer):
+    """
+    Go authentication proxier service.
+    """
+
+    AUTH_CLASS = ProxyAuthHandler
