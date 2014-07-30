@@ -251,6 +251,8 @@ class TestProxier(TestCase):
         def handler(req):
             req.responseHeaders.setRawHeaders('X-Foo', ['Bar'])
             req.responseHeaders.setRawHeaders('X-Baz', ['Quux', 'Corge'])
+            req.responseHeaders.setRawHeaders('X-Empty', [''])
+            req.responseHeaders.setRawHeaders('X-None', [])
             return ""
 
         server = yield self.mk_server(handler)
@@ -264,3 +266,5 @@ class TestProxier(TestCase):
         headers = dict(resp.headers.getAllRawHeaders())
         self.assertEqual(headers['X-Foo'], ['Bar'])
         self.assertEqual(headers['X-Baz'], ['Quux', 'Corge'])
+        self.assertEqual(headers.get('X-Empty'), None)
+        self.assertEqual(headers.get('X-None'), None)
