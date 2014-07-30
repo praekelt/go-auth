@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="go-auth",
-    version="0.1.2a",
+    version="0.1.3a",
     url='https://github.com/praekelt/go-auth',
     license='BSD',
     description="Authentication services and utilities for Vumi Go APIs.",
