@@ -50,7 +50,7 @@ from cyclone.web import (
 
 import treq
 
-from go_api.cyclone.handlers import read_yaml_config
+from go_api.cyclone.handlers import read_yaml_config, HealthHandler
 
 from go_auth.validator import static_web_authenticator
 
@@ -159,10 +159,18 @@ class Bouncer(Application):
         }
 
         routes = [
+            ("/health/", HealthHandler),
             (".*", self.AUTH_CLASS, kwargs),
         ]
 
         Application.__init__(self, routes, **settings)
+
+    def log_request(self, handler):
+        if getattr(handler, 'suppress_request_log', False):
+            # The handler doesn't want to be logged, so we're done.
+            return
+
+        return Application.log_request(self, handler)
 
 
 class Proxier(Bouncer):

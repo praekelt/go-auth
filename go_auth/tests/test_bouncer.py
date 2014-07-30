@@ -82,6 +82,11 @@ class TestBouncer(TestCase):
             " Forbidden</body></html>"))
 
     @inlineCallbacks
+    def test_health_check(self):
+        resp = yield self.app_helper.get('/health/')
+        self.assertEqual(resp.code, 200)
+
+    @inlineCallbacks
     def test_valid_credentials_in_query(self):
         resp = yield self.app_helper.get('/foo/?access_token=access-1')
         yield self.assert_authorized(resp)
@@ -119,6 +124,14 @@ class TestProxier(TestCase):
 
         self.addCleanup(server.stop)
         returnValue(server)
+
+    @inlineCallbacks
+    def test_health_check(self):
+        server = yield self.mk_server()
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+        resp = yield helper.get('/health/')
+        self.assertEqual(resp.code, 200)
 
     @inlineCallbacks
     def test_proxy_methods(self):
