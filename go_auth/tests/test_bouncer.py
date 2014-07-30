@@ -182,6 +182,28 @@ class TestProxier(TestCase):
         self.assertEqual(headers['X-Baz'], ['Quux,Corge'])
 
     @inlineCallbacks
+    def test_proxy_content_length_not_broken(self):
+        reqs = []
+
+        def handler(req):
+            reqs.append(req)
+            return ""
+
+        server = yield self.mk_server(handler)
+        config = mk_bouncer_config(self.mktemp(), proxy_url=server.url)
+        helper = AppHelper(app=Proxier(config))
+
+        yield helper.post('/foo/', headers={
+            'Authorization': 'Bearer access-1',
+            'X-Foo': 'Bar',
+        }, data="some stuff", timeout=1)
+
+        [req] = reqs
+        headers = dict(req.requestHeaders.getAllRawHeaders())
+        self.assertEqual(headers['X-Foo'], ['Bar'])
+        self.assertEqual(headers['Content-Length'], ['10'])
+
+    @inlineCallbacks
     def test_proxy_auth_headers(self):
         reqs = []
 
@@ -251,6 +273,7 @@ class TestProxier(TestCase):
         def handler(req):
             req.responseHeaders.setRawHeaders('X-Foo', ['Bar'])
             req.responseHeaders.setRawHeaders('X-Baz', ['Quux', 'Corge'])
+            req.responseHeaders.setRawHeaders('Content-Encoding', ['foo'])
             return ""
 
         server = yield self.mk_server(handler)
@@ -264,3 +287,4 @@ class TestProxier(TestCase):
         headers = dict(resp.headers.getAllRawHeaders())
         self.assertEqual(headers['X-Foo'], ['Bar'])
         self.assertEqual(headers['X-Baz'], ['Quux', 'Corge'])
+        self.assertEqual(headers['Content-Encoding'], [''])
