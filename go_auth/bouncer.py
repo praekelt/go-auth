@@ -103,6 +103,8 @@ class ProxyAuthHandler(BounceAuthHandler):
     def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
         headers = self.request.headers.copy()
+        # treq adds a duplicate Content-Length header if we have one.
+        headers.pop("Content-Length", None)
         headers["X-Owner-ID"] = owner_id
         headers["X-Client-ID"] = client_id
         headers["X-Scopes"] = " ".join(scopes)
@@ -111,10 +113,11 @@ class ProxyAuthHandler(BounceAuthHandler):
             headers=headers, data=self.request.body)
         self.set_status(resp.code)
         for header, items in resp.headers.getAllRawHeaders():
+            # cyclone adds a duplicate Content-Encoding header if we have one.
+            if header == "Content-Encoding":
+                continue
             for item in items:
-                if item:
-                    # Avoid adding empty headers, it breaks things.
-                    self.add_header(header, item)
+                self.add_header(header, item)
         body = yield resp.text()
         self.write(body)
 
