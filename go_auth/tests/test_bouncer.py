@@ -46,45 +46,62 @@ class TestBouncer(TestCase):
         self.assertEqual((yield resp.text()), body)
 
     @inlineCallbacks
-    def assert_authorized(self, resp):
+    def assert_authorized(self, resp, body=None):
         self.assertEqual(resp.code, 200)
         self.assert_headers(resp, {
             "X-Owner-ID": ["owner-1"],
             "X-Client-ID": ["client-1"],
             "X-Scopes": ["scope-a scope-b"],
         })
-        yield self.assert_body(resp, (
-            "Authenticated client 'client-1' with scopes:"
-            " ['scope-a', 'scope-b'].\n"))
+        if body is None:
+            body = ("Authenticated client 'client-1' with scopes:"
+                    " ['scope-a', 'scope-b'].\n")
+        yield self.assert_body(resp, body)
 
     @inlineCallbacks
-    def assert_unauthorized(self, resp):
+    def assert_unauthorized(self, resp, body=None):
         self.assertEqual(resp.code, 401)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
             "X-Client-ID": None,
             "X-Scopes": None,
         })
-        yield self.assert_body(resp, (
-            "<html><title>401: Unauthorized</title><body>401:"
-            " Unauthorized</body></html>"))
+        if body is None:
+            body = ("<html><title>401: Unauthorized</title><body>401:"
+                    " Unauthorized</body></html>")
+        yield self.assert_body(resp, body)
 
     @inlineCallbacks
-    def assert_forbidden(self, resp):
+    def assert_forbidden(self, resp, body=None):
         self.assertEqual(resp.code, 403)
         self.assert_headers(resp, {
             "X-Owner-ID": None,
             "X-Client-ID": None,
             "X-Scopes": None,
         })
-        yield self.assert_body(resp, (
-            "<html><title>403: Forbidden</title><body>403:"
-            " Forbidden</body></html>"))
+        if body is None:
+            body = ("<html><title>403: Forbidden</title><body>403:"
+                    " Forbidden</body></html>")
+        yield self.assert_body(resp, body)
 
     @inlineCallbacks
     def test_health_check(self):
         resp = yield self.app_helper.get('/health/')
         self.assertEqual(resp.code, 200)
+
+    @inlineCallbacks
+    def test_all_http_methods(self):
+        headers = {'Authorization': 'Bearer access-1'}
+        request = lambda method: (
+            self.app_helper.request(method, '/foo', headers=headers))
+
+        self.assert_authorized((yield request('HEAD')), body="")
+        self.assert_authorized((yield request('GET')))
+        self.assert_authorized((yield request('POST')))
+        self.assert_authorized((yield request('PUT')))
+        self.assert_authorized((yield request('PATCH')))
+        self.assert_authorized((yield request('DELETE')))
+        self.assert_authorized((yield request('OPTIONS')))
 
     @inlineCallbacks
     def test_valid_credentials_in_query(self):
