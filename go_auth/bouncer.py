@@ -56,6 +56,10 @@ from go_auth.validator import static_web_authenticator
 
 
 class BounceAuthHandler(RequestHandler):
+    # NOTE: cyclone supports a `default` handler as opossed to specifying each
+    # method type handler explicitly. The current version of cyclone available
+    # on pypi (v1.1) does not support this though, thus the need for these
+    # explicit handlers
 
     def initialize(self, auth, config):
         self.auth = auth
@@ -84,7 +88,7 @@ class BounceAuthHandler(RequestHandler):
             self.raise_denied("Invalid scopes.")
         return (request.owner_id, request.client_id, request.scopes)
 
-    def get(self, *args, **kw):
+    def default(self, *args, **kw):
         owner_id, client_id, scopes = self.check_oauth()
         self.set_header("X-Owner-ID", owner_id)
         self.set_header("X-Client-ID", client_id)
@@ -92,12 +96,29 @@ class BounceAuthHandler(RequestHandler):
         self.write("Authenticated client %r with scopes: %r.\n"
                    % (client_id, scopes))
 
+    def head(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def get(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def post(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def put(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def patch(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def delete(self, *args, **kw):
+        return self.default(*args, **kw)
+
+    def options(self, *args, **kw):
+        return self.default(*args, **kw)
+
 
 class ProxyAuthHandler(BounceAuthHandler):
-    # NOTE: cyclone supports a `default` handler as opossed to specifying each
-    # method type handler explicitly. The current version of cyclone available
-    # on pypi (v1.1) does not support this though, thus the need for these
-    # explicit handlers
 
     @inlineCallbacks
     def default(self, *args, **kw):
@@ -120,27 +141,6 @@ class ProxyAuthHandler(BounceAuthHandler):
                 self.add_header(header, item)
         body = yield resp.text()
         self.write(body)
-
-    def head(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def get(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def post(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def put(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def patch(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def delete(self, *args, **kw):
-        return self.default(*args, **kw)
-
-    def options(self, *args, **kw):
-        return self.default(*args, **kw)
 
     def proxy_url(self, url):
         return urljoin(self.config['proxy_url'], url)
